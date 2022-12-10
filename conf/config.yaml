@@ -6,8 +6,8 @@ ddp:
 rlbench:
     task_name: "multi"
     tasks: [open_drawer,slide_block_to_color_target]
-    demos: 100
-    demo_path: /my/demo/path
+    demos: 40
+    demo_path: /home/rutavms/data/peract
     episode_length: 25
     cameras: [front,left_shoulder,right_shoulder,wrist]
     camera_resolution: [128, 128]
@@ -29,9 +29,9 @@ framework:
     train_envs: 1
     replay_ratio: ${replay.batch_size}
     transitions_before_train: 200
-    tensorboard_logging: True
+    tensorboard_logging: False
     csv_logging: True
-    training_iterations: 40000
+    training_iterations: 800
     gpu: 0
     env_gpu: 0
     logdir: '/tmp/arm_test/'
@@ -44,7 +44,7 @@ framework:
     record_every_n: 5
 
 defaults:
-    - method: C2FARM
+    - method: VIT_BC_LANG
 
 hydra:
     run:

@@ -76,15 +76,24 @@ def main(cfg: DictConfig) -> None:
         logging.info('Starting seed %d.' % seed)
 
         world_size = cfg.ddp.num_devices
-        mp.spawn(run_seed_fn.run_seed,
-                 args=(cfg,
-                       obs_config,
-                       cfg.rlbench.cameras,
-                       multi_task,
-                       seed,
-                       world_size,),
-                 nprocs=world_size,
-                 join=True)
+        run_seed_fn.run_seed(
+                                0, # RANK
+                                cfg,
+                                obs_config,
+                                cfg.rlbench.cameras,
+                                multi_task,
+                                seed,
+                                world_size,
+                            )
+        #mp.spawn(run_seed_fn.run_seed,
+        #         args=(cfg,
+        #               obs_config,
+        #               cfg.rlbench.cameras,
+        #               multi_task,
+        #               seed,
+        #               world_size,),
+        #         nprocs=world_size,
+        #         join=True)
 
 
 if __name__ == '__main__':
