@@ -30,7 +30,7 @@ def main(cfg: DictConfig) -> None:
     logging.info('\n' + cfg_yaml)
 
     os.environ['MASTER_ADDR'] = cfg.ddp.master_addr
-    os.environ['MASTER_PORT'] = cfg.ddp.master_port
+    os.environ['MASTER_PORT'] = str(cfg.ddp.master_port)
 
     cfg.rlbench.cameras = cfg.rlbench.cameras \
         if isinstance(cfg.rlbench.cameras, ListConfig) else [cfg.rlbench.cameras]
@@ -76,24 +76,24 @@ def main(cfg: DictConfig) -> None:
         logging.info('Starting seed %d.' % seed)
 
         world_size = cfg.ddp.num_devices
-        run_seed_fn.run_seed(
-                                0, # RANK
-                                cfg,
-                                obs_config,
-                                cfg.rlbench.cameras,
-                                multi_task,
-                                seed,
-                                world_size,
-                            )
-        #mp.spawn(run_seed_fn.run_seed,
-        #         args=(cfg,
-        #               obs_config,
-        #               cfg.rlbench.cameras,
-        #               multi_task,
-        #               seed,
-        #               world_size,),
-        #         nprocs=world_size,
-        #         join=True)
+        #run_seed_fn.run_seed(
+        #                        0, # RANK
+        #                        cfg,
+        #                        obs_config,
+        #                        cfg.rlbench.cameras,
+        #                        multi_task,
+        #                        seed,
+        #                        world_size,
+        #                    )
+        mp.spawn(run_seed_fn.run_seed,
+                 args=(cfg,
+                       obs_config,
+                       cfg.rlbench.cameras,
+                       multi_task,
+                       seed,
+                       world_size,),
+                 nprocs=world_size,
+                 join=True)
 
 
 if __name__ == '__main__':

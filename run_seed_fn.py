@@ -30,9 +30,9 @@ def run_seed(rank,
              multi_task,
              seed,
              world_size) -> None:
-    #dist.init_process_group("gloo",
-    #                        rank=rank,
-    #                        world_size=world_size)
+    dist.init_process_group("gloo",
+                            rank=rank,
+                            world_size=world_size)
 
     task = cfg.rlbench.tasks[0]
     tasks = cfg.rlbench.tasks

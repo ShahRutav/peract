@@ -212,7 +212,7 @@ def main(eval_cfg: DictConfig) -> None:
         with open(train_config_path, 'r') as f:
             train_cfg = OmegaConf.load(f)
     else:
-        raise Exception("Missing seed%d/config.yaml" % start_seed)
+        raise Exception(f"Missing seed{start_seed}/config.yaml. Tried searching at {train_config_path}")
 
     env_device = utils.get_device(eval_cfg.framework.gpu)
     logging.info('Using env device %s.' % str(env_device))
