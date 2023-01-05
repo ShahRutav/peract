@@ -1,6 +1,7 @@
 from typing import List
 
 import torch
+import numpy as np
 
 from yarr.agents.agent import Agent, Summary, ActResult, \
     ScalarSummary, HistogramSummary, ImageSummary
@@ -26,6 +27,8 @@ class PreprocessAgent(Agent):
         for k, v in replay_sample.items():
             if self._norm_rgb and 'rgb' in k:
                 replay_sample[k] = self._norm_rgb_(v)
+            elif type(v) == np.ndarray:
+                replay_sample[k] = v
             else:
                 replay_sample[k] = v.float()
         self._replay_sample = replay_sample
@@ -37,6 +40,9 @@ class PreprocessAgent(Agent):
         for k, v in observation.items():
             if self._norm_rgb and 'rgb' in k:
                 observation[k] = self._norm_rgb_(v)
+            elif type(v) == np.ndarray: ## Only lang_goal_desc passed as np.ndarray
+                assert k == 'lang_goal_desc', f"Value of key {k} passed as np.ndarray, only for lang_goal_desc is allowed. Check rollout_generator"
+                observation[k] = v
             else:
                 observation[k] = v.float()
         act_res = self._pose_agent.act(step, observation, deterministic)

@@ -677,7 +677,130 @@ class ViTLangAndFcsNet(nn.Module):
         x = self._maxp(x).squeeze(-1).squeeze(-1)
         return self._fcs(x)
 
+def _set_train(module, train_bool):
+    module.train(train_bool)
+    for p in module.parameters():
+        p.requires_grad = train_bool
 
+class ViTLangLearnAndFcsNet(nn.Module):
+
+    def __init__(self,
+                 vit: ViT,
+                 lang_model,
+                 tokenizer,
+                 low_dim_state_len: int,
+                 input_resolution: List[int],
+                 filters: List[int],
+                 kernel_sizes: List[int],
+                 strides: List[int],
+                 norm: str = None,
+                 fc_layers: List[int] = None,
+                 activation: str = 'relu'):
+        super(ViTLangLearnAndFcsNet, self).__init__()
+        self._vit = copy.deepcopy(vit)
+        self._lang_model = copy.deepcopy(lang_model)
+        self._tokenizer = tokenizer
+        self._input_channels = 64 + low_dim_state_len
+        self._filters = filters
+        self._kernel_sizes = kernel_sizes
+        self._strides = strides
+        self._norm = norm
+        self._activation = activation
+        self._fc_layers = [] if fc_layers is None else fc_layers
+        self._input_resolution = input_resolution
+
+        self._lang_feat_dim = 1024
+
+    def build(self):
+        layers = []
+        channels = self._input_channels
+
+        print(self._norm, self._activation)
+        self.conv1 = Conv2DFiLMBlock(
+            channels, self._filters[0], self._kernel_sizes[0],
+            self._strides[0], norm=None, activation=None)
+        self.gamma1 = nn.Linear(self._lang_feat_dim, self._filters[0])
+        self.beta1 = nn.Linear(self._lang_feat_dim, self._filters[0])
+
+        self.conv2 = Conv2DFiLMBlock(
+            self._filters[0], self._filters[1], self._kernel_sizes[1],
+            self._strides[1], norm=None, activation=None)
+        self.gamma2 = nn.Linear(self._lang_feat_dim, self._filters[1])
+        self.beta2 = nn.Linear(self._lang_feat_dim, self._filters[1])
+
+        self.conv3 = Conv2DFiLMBlock(
+            self._filters[1], self._filters[2], self._kernel_sizes[2],
+            self._strides[2], norm=None, activation=None)
+        self.gamma3 = nn.Linear(self._lang_feat_dim, self._filters[2])
+        self.beta3 = nn.Linear(self._lang_feat_dim, self._filters[2])
+
+        self._maxp = nn.AdaptiveMaxPool2d(1)
+
+        channels = self._filters[-1]
+        dense_layers = []
+        for n in self._fc_layers[:-1]:
+            dense_layers.append(
+                DenseBlock(channels, n, activation=self._activation))
+            channels = n
+        dense_layers.append(
+            DenseBlock(channels, self._fc_layers[-1]))
+        self._fcs = nn.Sequential(*dense_layers)
+
+    def get_optim_param_group(self, lr):
+        params = []
+        for name, param in self.named_parameters():
+            if name.startswith('_lang_model'):
+                params.append({'params': param, 'lr': 0.0001*lr})
+            else:
+                params.append({'params': param, 'lr': lr})
+        return params
+
+    def train_module(self): # Should handle both: requries_grad and .train()
+        for module_name, module in self.named_modules():
+            if module_name.startswith('_lang_model'):
+                if module_name == '_lang_model.transformer':
+                    for mod_name, mod in module.named_modules():
+                        #if mod_name.startswith("resblocks.11") or mod_name.startswith("resblocks.10"):
+                        if mod_name.startswith("resblocks.11"):
+                            _set_train(mod, True)
+                        else:
+                            _set_train(mod, False)
+                elif module_name == '_lang_model.ln_final':
+                    _set_train(module, True)
+                elif not module_name.startswith('_lang_model.transformer'):
+                    _set_train(module, False)
+            else:
+                _set_train(module, True)
+        return self
+
+
+    def forward(self, observations, low_dim_ins, lang_goal_desc):
+        rgb_depth = torch.cat([*observations], dim=1)
+        x = self._vit(rgb_depth)
+        _, _, h, w = x.shape
+        low_dim_latents = low_dim_ins.unsqueeze(
+            -1).unsqueeze(-1).repeat(1, 1, h, w)
+        combined = torch.cat([x, low_dim_latents], dim=1)
+
+        tokens = self._tokenizer(lang_goal_desc).numpy()
+        token_tensor = torch.from_numpy(tokens).to(low_dim_latents.device)
+        lang_goal_emb, _ = self._lang_model.encode_text_with_embeddings(token_tensor)
+        assert lang_goal_emb.shape[0] == rgb_depth.shape[0], f"Unequal batch_size between lang_goal_emb: {lang_goal_emb.shape} and observations: {rgb_depth.shape}"
+
+        g1 = self.gamma1(lang_goal_emb)
+        b1 = self.beta1(lang_goal_emb)
+        x = self.conv1(combined, g1, b1)
+
+        g2 = self.gamma2(lang_goal_emb)
+        b2 = self.beta2(lang_goal_emb)
+        x = self.conv2(x, g2, b2)
+
+        g3 = self.gamma3(lang_goal_emb)
+        b3 = self.beta3(lang_goal_emb)
+        x = self.conv3(x, g3, b3)
+
+        x = self._maxp(x).squeeze(-1).squeeze(-1)
+        return self._fcs(x)
 
 class Conv3DInceptionBlockUpsampleBlock(nn.Module):
 

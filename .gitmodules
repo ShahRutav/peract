@@ -3,8 +3,8 @@
 	url = https://github.com/stepjam/PyRep.git
 [submodule "YARR"]
 	path = YARR
-	url = https://github.com/MohitShridhar/YARR.git
-	branch = peract
+	url = https://github.com/ShahRutav/YARR.git
+	branch = task_spec
 [submodule "RLBench"]
 	path = RLBench
 	url = https://github.com/MohitShridhar/RLBench.git

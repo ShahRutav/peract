@@ -9,6 +9,7 @@ from typing import Tuple, Union
 import torch
 import torch.nn.functional as F
 from torch import nn
+import numpy as np
 
 import hashlib
 import os
@@ -517,6 +518,7 @@ def build_model(state_dict: dict):
 
     convert_weights(model)
     model.load_state_dict(state_dict)
+    model.float()
     return model.eval()
 
 
@@ -595,6 +597,8 @@ def load_clip(name: str, device: Union[str, torch.device] = "cuda" if torch.cuda
     model.apply(patch_device)
     patch_device(model.encode_image)
     patch_device(model.encode_text)
+    model.float32()
+    transform.float32()
 
     # patch dtype to float32 on CPU
     if str(device) == "cpu":
@@ -636,5 +640,26 @@ def tokenize(texts: Union[str, List[str]], context_length: int = 77):
         if len(tokens) > context_length:
             raise RuntimeError(f"Input {texts[i]} is too long for context length {context_length}")
         result[i, :len(tokens)] = torch.tensor(tokens)
+
+    return result
+
+def batch_tokenize(texts: Union[str, List[str]], context_length: int = 77):
+    if not isinstance(texts, np.ndarray):
+        texts = np.array([[texts]])
+
+    all_tokens = []
+    for _texts in texts: ## Necessary _texts is a list of task description per sample
+        sot_token = _tokenizer.encoder["<|startoftext|>"]
+        eot_token = _tokenizer.encoder["<|endoftext|>"]
+        tokens = [sot_token]
+        for text in _texts:
+            tokens.extend(_tokenizer.encode(text))
+        tokens.append(eot_token)
+        all_tokens.append(tokens)
+    result = torch.zeros(len(all_tokens), context_length, dtype=torch.long)
+    for i, tokens in enumerate(all_tokens):
+        if len(tokens) > context_length:
+            raise RuntimeError(f"Input {_texts[i]} is too long for context length {context_length}")
+        result[i, :len(tokens)] = torch.tensor(tokens, dtype=torch.float32)
 
     return result

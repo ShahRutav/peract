@@ -23,7 +23,7 @@ from yarr.utils.stat_accumulator import SimpleAccumulator
 from agents import c2farm_lingunet_bc
 from agents import peract_bc
 from agents import arm
-from agents.baselines import bc_lang, vit_bc_lang
+from agents.baselines import bc_lang, vit_bc_lang, vit_bc_lang_learn
 
 from helpers.custom_rlbench_env import CustomRLBenchEnv, CustomMultiTaskRLBenchEnv
 from helpers import utils
@@ -61,6 +61,15 @@ def eval_seed(train_cfg,
 
     elif train_cfg.method.name == 'VIT_BC_LANG':
         agent = vit_bc_lang.launch_utils.create_agent(
+            cams[0],
+            train_cfg.method.activation,
+            train_cfg.method.lr,
+            train_cfg.method.weight_decay,
+            train_cfg.rlbench.camera_resolution,
+            train_cfg.method.grad_clip)
+
+    elif train_cfg.method.name == 'VIT_BC_LANG_LEARN':
+        agent = vit_bc_lang_learn.launch_utils.create_agent(
             cams[0],
             train_cfg.method.activation,
             train_cfg.method.lr,
