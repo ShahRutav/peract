@@ -715,7 +715,6 @@ class ViTLangLearnAndFcsNet(nn.Module):
         layers = []
         channels = self._input_channels
 
-        print(self._norm, self._activation)
         self.conv1 = Conv2DFiLMBlock(
             channels, self._filters[0], self._kernel_sizes[0],
             self._strides[0], norm=None, activation=None)

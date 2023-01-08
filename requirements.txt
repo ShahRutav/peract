@@ -16,3 +16,7 @@ torch==1.7.1
 torchvision==0.8.2
 transformers==4.3.2
 trimesh==3.9.34
+timm==0.4.5
+av
+decord==0.6.0
+humanize==3.5.0
