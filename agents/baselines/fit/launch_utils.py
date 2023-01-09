@@ -2,8 +2,10 @@
 # Source: https://github.com/stepjam/ARM
 # License: https://github.com/stepjam/ARM/LICENSE
 
+import os
 import logging
 from typing import List
+from pathlib import Path
 
 import numpy as np
 from omegaconf import DictConfig
@@ -18,15 +20,17 @@ from yarr.replay_buffer.uniform_replay_buffer import UniformReplayBuffer
 from yarr.replay_buffer.task_uniform_replay_buffer import TaskUniformReplayBuffer
 
 from helpers import demo_loading_utils, utils
-from agents.baselines.fit.fit_agent import FITAgent
 from helpers.custom_rlbench_env import CustomRLBenchEnv
 from helpers.network_utils import ViT # Observation encoder
-# TODO: add FIT agent in network_utils/create your a separate one.
 from helpers.preprocess_agent import PreprocessAgent
 
 import torch
 from torch.multiprocessing import Process, Value, Manager
-from helpers.fit.fit import build_model, load_clip, batch_tokenize
+import helpers.fit as fit
+from helpers.fit import parse_config
+from helpers.fit.fit import build_model#, batch_tokenize
+# TODO: add FIT agent in network_utils/create your a separate one.
+from agents.baselines.fit.fit_agent import FITAgent
 
 LOW_DIM_SIZE = 4
 
@@ -249,9 +253,8 @@ def create_agent(camera_name: str,
                  grad_clip: float,
                  norm = None):
 
-    #model, _ = load_clip('RN50', jit=False)
-    model = load_model(config_path=None)
-    del model
+    fit_model, tokenizer = build_model(config_path=Path(os.path.join(fit.__path__[0], 'config.json')))
+    #return fit_model, tokenizer
 
     vit = ViT(
         image_size=128,
@@ -266,10 +269,10 @@ def create_agent(camera_name: str,
         channels=6,
     )
 
-    actor_net = ViTLangLearnAndFcsNet(
+    actor_net = FITAndFcsNet(
         vit=vit,
-        lang_model=clip_model,
-        tokenizer=batch_tokenize,
+        task_model=fit_model,
+        tokenizer=tokenizer,
         input_resolution=image_resolution,
         filters=[64, 96, 128],
         kernel_sizes=[1, 1, 1],
@@ -287,3 +290,23 @@ def create_agent(camera_name: str,
         grad_clip=grad_clip)
 
     return PreprocessAgent(pose_agent=bc_agent)
+
+
+if __name__ == '__main__':
+    agent = create_agent(camera_name="bullshit",
+                 activation="lrelu",
+                 lr='1e-3',
+                 weight_decay=1e-3,
+                 image_resolution=84,
+                 grad_clip=0.1,
+                 norm = None)
+    fit_model, tokenizer = agent
+    data = {}
+    data["text"] = "Open the top drawer"
+    data['text'] = tokenizer(data['text'], return_tensors='pt', padding=True, truncation=True)
+    data['text'] = {key: val.cuda() for key, val in data['text'].items()}
+    print(data['text'])
+    # Returns [1, 256] text feats
+    text_feat = fit_model.module.compute_text(data["text"])
+    print(text_feat.shape)
+
