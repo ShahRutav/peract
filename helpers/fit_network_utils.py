@@ -70,6 +70,7 @@ class FITAndFcsNet(nn.Module):
             DenseBlock(channels, self._fc_layers[-1]))
         self._fcs = nn.Sequential(*dense_layers)
 
+
     def get_optim_param_group(self, lr):
         params = []
         for name, param in self.named_parameters():
@@ -87,6 +88,14 @@ class FITAndFcsNet(nn.Module):
                 _set_train(module, True)
         return self
 
+    def batch_tokenize(self, texts: List[str], context_length: int = 77):
+        all_tokens = []
+        if type(texts) is not list:
+            texts = texts.tolist()
+        assert type(texts) == list and type(texts[0]) == str ## has to be a list of language goals
+        all_tokens = self._tokenizer(texts, return_tensors='pt', padding=True, truncation=True) # Trests it like multiple sentences
+        return all_tokens
+
     def forward(self, observations, low_dim_ins, lang_goal_desc=None, goal_image=None, video=None):
         rgb_depth = torch.cat([*observations], dim=1)
         x = self._vit(rgb_depth)
@@ -96,7 +105,7 @@ class FITAndFcsNet(nn.Module):
         combined = torch.cat([x, low_dim_latents], dim=1)
 
         with torch.no_grad():
-            tokens = self._tokenizer(lang_goal_desc)
+            tokens = self.batch_tokenize(lang_goal_desc)
         #tokens = [{key: val.cuda() for key, val in token.items()} for token in tokens]
         tokens = {key: val.cuda() for key, val in tokens.items()}
         lang_goal_emb = self._task_model.module.compute_text(tokens) ## TODO: change this to forward pass computation of task_model

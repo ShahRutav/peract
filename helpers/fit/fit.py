@@ -41,6 +41,7 @@ def build_model(config_path):
     #config._config['data_loader'][0]['args']['shuffle'] = False
     #config._config['data_loader'][0]['args']['batch_size'] = args.batch_size
 
+    ## Get tokenizer
     text_model_name = config['arch']['args']['text_params']['model']
     if "openai/clip" in text_model_name:
         tokenizer_builder = transformers.CLIPTokenizer
@@ -50,14 +51,6 @@ def build_model(config_path):
         text_model_name,
         model_max_length=config['arch']['args']['text_params'].get('max_length', 1e6), # If missing, sets to 1e6
         TOKENIZERS_PARALLELISM=False)
-
-    def batch_tokenize(texts: List[str], context_length: int = 77):
-        all_tokens = []
-        if type(texts) is not list:
-            texts = texts.tolist()
-        assert type(texts) == list and type(texts[0]) == str ## has to be a list of language goals
-        all_tokens = tokenizer(texts, return_tensors='pt', padding=True, truncation=True) # Trests it like multiple sentences
-        return all_tokens
 
     # build model architecture
     model = config.initialize('arch', module_arch)
@@ -78,7 +71,7 @@ def build_model(config_path):
 
     transform = transforms.init_transform_dict()[config._config['data_loader'][0]['args']['tsfm_split']]
 
-    return model, batch_tokenize, transform
+    return model, tokenizer, transform
 
 def main():
     model, tokenizer, transform = \

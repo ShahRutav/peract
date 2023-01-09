@@ -115,6 +115,7 @@ class FITAgent(Agent):
     def act(self, step: int, observation: dict,
             deterministic=False) -> ActResult:
         lang_goal_desc = observation.get('lang_goal_desc', None) # Bad behavior. We should get descriptions as observation
+        lang_goal_desc = self.batch_lang_goal_desc(lang_goal_desc)
 
         observations = [
             observation['%s_rgb' % self._camera_name][0].to(self._device),
