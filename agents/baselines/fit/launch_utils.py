@@ -253,8 +253,8 @@ def create_agent(camera_name: str,
                  grad_clip: float,
                  norm = None):
 
-    fit_model, tokenizer = build_model(config_path=Path(os.path.join(fit.__path__[0], 'config.json')))
-    #return fit_model, tokenizer
+    fit_model, tokenizer, visual_transform  = build_model(config_path=Path(os.path.join(fit.__path__[0], 'config.json')))
+    #return fit_model, tokenizer, visual_transform
 
     vit = ViT(
         image_size=128,
@@ -300,13 +300,21 @@ if __name__ == '__main__':
                  image_resolution=84,
                  grad_clip=0.1,
                  norm = None)
-    fit_model, tokenizer = agent
+    fit_model, tokenizer, vis_transform = agent
+    print(fit_model)
     data = {}
     data["text"] = "Open the top drawer"
-    data['text'] = tokenizer(data['text'], return_tensors='pt', padding=True, truncation=True)
-    data['text'] = {key: val.cuda() for key, val in data['text'].items()}
+    data["text"] = tokenizer(data['text'], return_tensors='pt', padding=True, truncation=True)
+    data["text"] = {key: val.cuda() for key, val in data['text'].items()}
+    vid = torch.rand((4, 3, 256, 256))
+    vid = vis_transform(vid) # Input has to be 4 dimensional, returns a vector of size [t, 3, 224, 224]
+    vid = vid.unsqueeze(0)
+    print(vid.shape)
+    data["video"] = vid.cuda()
     print(data['text'])
-    # Returns [1, 256] text feats
+    # Input: dict{'input_ids': [b, num_of_tokens], 'attention_mask': [b, num_tokens]}; Returns [b, 256] text feats
     text_feat = fit_model.module.compute_text(data["text"])
-    print(text_feat.shape)
+    # Input: [b, t, c, h, w]; Returns [b, 256] video feats
+    vid_feat = fit_model.module.compute_video(data["video"])
+    print(text_feat.shape, vid_feat.shape)
 

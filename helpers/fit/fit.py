@@ -8,6 +8,7 @@ import transformers
 from helpers import fit
 from helpers.fit import parse_config
 import helpers.fit.model as module_arch
+from helpers.fit import transforms
 from helpers.fit.utils.util import state_dict_data_parallel_fix
 
 def build_model(config_path):
@@ -60,7 +61,9 @@ def build_model(config_path):
     model = model.to(device)
     model.eval()
 
-    return model, tokenizer
+    transform = transforms.init_transform_dict()[config._config['data_loader'][0]['args']['tsfm_split']]
+
+    return model, tokenizer, transform
 
 def main():
     build_model(
