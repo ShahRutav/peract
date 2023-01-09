@@ -20,7 +20,7 @@ import torch.distributed as dist
 from agents import c2farm_lingunet_bc
 from agents import peract_bc
 from agents import arm
-from agents.baselines import bc_lang, vit_bc_lang, vit_bc_lang_learn
+from agents.baselines import bc_lang, vit_bc_lang, vit_bc_lang_learn, fit
 
 
 def run_seed(rank,
@@ -101,7 +101,27 @@ def run_seed(rank,
         agent = vit_bc_lang_learn.launch_utils.create_agent(
             cams[0], cfg.method.activation, cfg.method.lr,
             cfg.method.weight_decay, cfg.rlbench.camera_resolution,
-            cfg.method.grad_clip, cfg.method.norm)
+            cfg.method.grad_clip)
+
+    elif cfg.method.name == 'FIT':
+        assert cfg.ddp.num_devices == 1, "VIT_BC_LANG_LEARN only supports single GPU training"
+        replay_buffer = fit.launch_utils.create_replay(
+            cfg.replay.batch_size, cfg.replay.timesteps,
+            cfg.replay.prioritisation,
+            cfg.replay.task_uniform,
+            replay_path if cfg.replay.use_disk else None,
+            cams, cfg.rlbench.camera_resolution)
+
+        fit.launch_utils.fill_multi_task_replay(
+            cfg, obs_config, rank,
+            replay_buffer, tasks, cfg.rlbench.demos,
+            cfg.method.demo_augmentation, cfg.method.demo_augmentation_every_n,
+            cams)
+
+        agent = fit.launch_utils.create_agent(
+            cams[0], cfg.method.activation, cfg.method.lr,
+            cfg.method.weight_decay, cfg.rlbench.camera_resolution,
+            cfg.method.grad_clip)
 
     elif cfg.method.name == 'C2FARM_LINGUNET_BC':
         replay_buffer = c2farm_lingunet_bc.launch_utils.create_replay(

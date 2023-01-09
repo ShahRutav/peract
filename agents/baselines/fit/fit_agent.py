@@ -14,7 +14,7 @@ from helpers.utils import stack_on_channel
 
 from helpers.clip.core.clip import build_model, load_clip
 
-NAME = 'ViTBCLangLearnAgent'
+NAME = 'FITAgent'
 REPLAY_ALPHA = 0.7
 REPLAY_BETA = 1.0
 
@@ -82,14 +82,21 @@ class FITAgent(Agent):
             nn.utils.clip_grad_value_(model_params, clip)
         opt.step()
 
+    def batch_lang_goal_desc(self, lang_goals):
+        if not type(lang_goals) is list:
+            lang_goals = lang_goals.tolist()
+        final_goals = [goal[0] if (len(goal)==1) else ' '.join(goal) for goal in lang_goals]
+        return final_goals
+
     def update(self, step: int, replay_sample: dict) -> dict:
         lang_goal_desc = replay_sample['lang_goal_desc']
+        lang_goal_desc = self.batch_lang_goal_desc(lang_goal_desc)
         robot_state = replay_sample['low_dim_state']
         observations = [
             replay_sample['%s_rgb' % self._camera_name],
             replay_sample['%s_point_cloud' % self._camera_name]
         ]
-        mu = self._actor(observations, robot_state, lang_goal_desc)
+        mu = self._actor(observations=observations, robot_state=robot_state, lang_goal_desc=lang_goal_desc)
         loss_weights = utils.loss_weights(replay_sample, REPLAY_BETA)
         delta = F.mse_loss(
             mu, replay_sample['action'], reduction='none').mean(1)

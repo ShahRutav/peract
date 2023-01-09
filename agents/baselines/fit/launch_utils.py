@@ -30,6 +30,7 @@ import helpers.fit as fit
 from helpers.fit import parse_config
 from helpers.fit.fit import build_model#, batch_tokenize
 # TODO: add FIT agent in network_utils/create your a separate one.
+from helpers.fit_network_utils import FITAndFcsNet
 from agents.baselines.fit.fit_agent import FITAgent
 
 LOW_DIM_SIZE = 4
@@ -254,7 +255,6 @@ def create_agent(camera_name: str,
                  norm = None):
 
     fit_model, tokenizer, visual_transform  = build_model(config_path=Path(os.path.join(fit.__path__[0], 'config.json')))
-    #return fit_model, tokenizer, visual_transform
 
     vit = ViT(
         image_size=128,
@@ -273,6 +273,7 @@ def create_agent(camera_name: str,
         vit=vit,
         task_model=fit_model,
         tokenizer=tokenizer,
+        visual_transform=visual_transform,
         input_resolution=image_resolution,
         filters=[64, 96, 128],
         kernel_sizes=[1, 1, 1],
@@ -281,6 +282,7 @@ def create_agent(camera_name: str,
         activation=activation,
         fc_layers=[128, 64, 3 + 4 + 1],
         low_dim_state_len=LOW_DIM_SIZE)
+    #return actor_net
 
     bc_agent = FITAgent(
         actor_network=actor_net,
@@ -293,25 +295,41 @@ def create_agent(camera_name: str,
 
 
 if __name__ == '__main__':
-    agent = create_agent(camera_name="bullshit",
+    data = {}
+    vid = torch.rand((4, 3, 256, 256))
+    data["text"] = "Open the top drawer"
+    data["video"] = vid.cuda()
+    bs = 2
+    lang_goal_desc = [data["text"] for _ in range(bs)]
+    print(lang_goal_desc)
+    robot_state = torch.rand((bs, 4)).to(device="cuda:0")
+    observations = [
+        torch.rand((bs,3,128,128)).to(device="cuda:0"),
+        torch.rand((bs,3,128,128)).to(device="cuda:0")
+    ]
+    actor_network = create_agent(camera_name="bullshit",
                  activation="lrelu",
                  lr='1e-3',
                  weight_decay=1e-3,
                  image_resolution=84,
                  grad_clip=0.1,
                  norm = None)
+
+    actor_network.build()
+    actor_network.to(device="cuda:0")
+    x = actor_network.forward(observations, robot_state, lang_goal_desc=lang_goal_desc)
+    print(x.shape)
+    exit()
+
     fit_model, tokenizer, vis_transform = agent
     print(fit_model)
-    data = {}
-    data["text"] = "Open the top drawer"
     data["text"] = tokenizer(data['text'], return_tensors='pt', padding=True, truncation=True)
     data["text"] = {key: val.cuda() for key, val in data['text'].items()}
-    vid = torch.rand((4, 3, 256, 256))
-    vid = vis_transform(vid) # Input has to be 4 dimensional, returns a vector of size [t, 3, 224, 224]
-    vid = vid.unsqueeze(0)
-    print(vid.shape)
-    data["video"] = vid.cuda()
     print(data['text'])
+    vid = vis_transform(data["video"]) # Input has to be 4 dimensional, returns a vector of size [t, 3, 224, 224]
+    vid = vid.unsqueeze(0)
+    data["video"] = vid
+    print(vid.shape)
     # Input: dict{'input_ids': [b, num_of_tokens], 'attention_mask': [b, num_tokens]}; Returns [b, 256] text feats
     text_feat = fit_model.module.compute_text(data["text"])
     # Input: [b, t, c, h, w]; Returns [b, 256] video feats
