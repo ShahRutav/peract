@@ -104,23 +104,30 @@ class FITAndFcsNet(nn.Module):
             -1).unsqueeze(-1).repeat(1, 1, h, w)
         combined = torch.cat([x, low_dim_latents], dim=1)
 
-        with torch.no_grad():
-            tokens = self.batch_tokenize(lang_goal_desc)
-        #tokens = [{key: val.cuda() for key, val in token.items()} for token in tokens]
-        tokens = {key: val.cuda() for key, val in tokens.items()}
-        lang_goal_emb = self._task_model.module.compute_text(tokens) ## TODO: change this to forward pass computation of task_model
-        assert lang_goal_emb.shape[0] == rgb_depth.shape[0], f"Unequal batch_size between lang_goal_emb: {lang_goal_emb.shape} and observations: {rgb_depth.shape}"
+        if video is not None:
+            bs, num_cam, t, _, _, _ = video.shape
+            video = video.reshape(-1, *video.shape[3:])
+            video = self._visual_transform(video)
+            video = video.reshape(-1, t, *video.shape[1:])
+            goal_emb = self._task_model.module.compute_video(video)
+            goal_emb = goal_emb.reshape(bs, *goal_emb.shape[1:])
+        if lang_goal_desc is not None:
+            with torch.no_grad():
+                tokens = self.batch_tokenize(lang_goal_desc)
+            tokens = {key: val.cuda() for key, val in tokens.items()}
+            goal_emb = self._task_model.module.compute_text(tokens) ## TODO: change this to forward pass computation of task_model
+        assert goal_emb.shape[0] == rgb_depth.shape[0], f"Unequal batch_size between goal_emb: {goal_emb.shape} and observations: {rgb_depth.shape}"
 
-        g1 = self.gamma1(lang_goal_emb)
-        b1 = self.beta1(lang_goal_emb)
+        g1 = self.gamma1(goal_emb)
+        b1 = self.beta1(goal_emb)
         x = self.conv1(combined, g1, b1)
 
-        g2 = self.gamma2(lang_goal_emb)
-        b2 = self.beta2(lang_goal_emb)
+        g2 = self.gamma2(goal_emb)
+        b2 = self.beta2(goal_emb)
         x = self.conv2(x, g2, b2)
 
-        g3 = self.gamma3(lang_goal_emb)
-        b3 = self.beta3(lang_goal_emb)
+        g3 = self.gamma3(goal_emb)
+        b3 = self.beta3(goal_emb)
         x = self.conv3(x, g3, b3)
 
         x = self._maxp(x).squeeze(-1).squeeze(-1)

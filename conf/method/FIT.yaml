@@ -7,3 +7,4 @@ weight_decay: 0.000001
 grad_clip: 0.1
 demo_augmentation: True
 demo_augmentation_every_n: 10
+task_specification_path: /home/rutavms/data/rlbench_task_specifications

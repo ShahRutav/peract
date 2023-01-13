@@ -41,7 +41,7 @@ class PreprocessAgent(Agent):
             if self._norm_rgb and 'rgb' in k:
                 observation[k] = self._norm_rgb_(v)
             elif type(v) == np.ndarray: ## Only lang_goal_desc passed as np.ndarray
-                assert k == 'lang_goal_desc', f"Value of key {k} passed as np.ndarray, only for lang_goal_desc is allowed. Check rollout_generator"
+                assert k == 'lang_goal_desc' or k == 'task_name' or k == 'task_variation', f"Value of key {k} passed as np.ndarray, only for lang_goal_desc, task_name, task_variation is allowed. Check rollout_generator"
                 observation[k] = v
             else:
                 observation[k] = v.float()

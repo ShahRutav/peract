@@ -67,6 +67,10 @@ def create_replay(batch_size: int, timesteps: int,
                       str),
         ReplayElement('lang_goal', (1,),
                       object),  # language goal string for debugging and visualization
+        ReplayElement('task_variation', (),
+                      object),  # variation number of the task
+        ReplayElement('task_name', (),
+                      object),  #name of the task
     ])
 
     extra_replay_elements = [
@@ -125,6 +129,8 @@ def _add_keypoints_to_replay(
             'task': task,
             'lang_goal': np.array([description], dtype=object), # Pass only language goal
             'lang_goal_desc': [description], # Pass only language goal
+            'task_variation': str(demo.variation_number),  # convert it to string so that it stores in np.array insted of cuda tensor
+            'task_name': task,
         }
 
         prev_action = np.copy(action)
@@ -252,6 +258,8 @@ def create_agent(camera_name: str,
                  weight_decay: float,
                  image_resolution: list,
                  grad_clip: float,
+                 task_specification_path: str,
+                 observation_config: ObservationConfig,
                  norm = None):
 
     fit_model, tokenizer, visual_transform  = build_model(config_path=Path(os.path.join(fit.__path__[0], 'config.json')))
@@ -289,17 +297,19 @@ def create_agent(camera_name: str,
         camera_name=camera_name,
         lr=lr,
         weight_decay=weight_decay,
-        grad_clip=grad_clip)
+        grad_clip=grad_clip,
+        task_specification_path=task_specification_path,
+        observation_config=observation_config)
 
     return PreprocessAgent(pose_agent=bc_agent)
 
 
 if __name__ == '__main__':
     data = {}
-    vid = torch.rand((4, 3, 256, 256))
+    bs = 2
+    vid = torch.rand((bs, 1, 4, 3, 256, 256))
     data["text"] = "Open the top drawer"
     data["video"] = vid.cuda()
-    bs = 2
     lang_goal_desc = [data["text"] for _ in range(bs)]
     print(lang_goal_desc)
     robot_state = torch.rand((bs, 4)).to(device="cuda:0")
@@ -307,17 +317,19 @@ if __name__ == '__main__':
         torch.rand((bs,3,128,128)).to(device="cuda:0"),
         torch.rand((bs,3,128,128)).to(device="cuda:0")
     ]
-    actor_network = create_agent(camera_name="bullshit",
+    actor_network = create_agent(camera_name="front",
                  activation="lrelu",
                  lr='1e-3',
                  weight_decay=1e-3,
                  image_resolution=84,
                  grad_clip=0.1,
-                 norm = None)
+                 norm = None,
+                 task_specification_path='/home/rutavms/data/rlbench_task_specifications/',
+                 observation_config=None)
 
     actor_network.build()
     actor_network.to(device="cuda:0")
-    x = actor_network.forward(observations, robot_state, lang_goal_desc=lang_goal_desc)
+    x = actor_network.forward(observations, robot_state, lang_goal_desc=None, video=data["video"])
     print(x.shape)
     exit()
 

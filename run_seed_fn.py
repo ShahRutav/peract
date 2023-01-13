@@ -119,9 +119,14 @@ def run_seed(rank,
             cams)
 
         agent = fit.launch_utils.create_agent(
-            cams[0], cfg.method.activation, cfg.method.lr,
-            cfg.method.weight_decay, cfg.rlbench.camera_resolution,
-            cfg.method.grad_clip)
+                                        camera_name=cams[0],
+                                        activation=cfg.method.activation,
+                                        lr=cfg.method.lr,
+                                        weight_decay=cfg.method.weight_decay,
+                                        image_resolution=cfg.rlbench.camera_resolution,
+                                        grad_clip=cfg.method.grad_clip,
+                                        task_specification_path=cfg.method.task_specification_path,
+                                        observation_config=obs_config)
 
     elif cfg.method.name == 'C2FARM_LINGUNET_BC':
         replay_buffer = c2farm_lingunet_bc.launch_utils.create_replay(

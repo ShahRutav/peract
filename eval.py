@@ -45,6 +45,7 @@ def eval_seed(train_cfg,
               env_config) -> None:
 
     tasks = eval_cfg.rlbench.tasks
+    obs_config = env_config[1] ## TODO: Change this behavior
     rg = RolloutGenerator()
 
     if train_cfg.method.name == 'ARM':
@@ -84,7 +85,9 @@ def eval_seed(train_cfg,
             train_cfg.method.lr,
             train_cfg.method.weight_decay,
             train_cfg.rlbench.camera_resolution,
-            train_cfg.method.grad_clip)
+            train_cfg.method.grad_clip,
+            task_specification_path=train_cfg.method.task_specification_path,
+            observation_config=obs_config)
 
     elif train_cfg.method.name == 'C2FARM_LINGUNET_BC':
         agent = c2farm_lingunet_bc.launch_utils.create_agent(train_cfg)

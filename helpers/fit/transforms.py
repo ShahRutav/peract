@@ -10,9 +10,9 @@ def init_transform_dict(input_res=224,
     normalize = transforms.Normalize(mean=norm_mean, std=norm_std)
     tsfm_dict = {
         'train': transforms.Compose([
-            transforms.RandomResizedCrop(input_res, scale=randcrop_scale),
-            transforms.RandomHorizontalFlip(),
-            transforms.ColorJitter(brightness=color_jitter[0], saturation=color_jitter[1], hue=color_jitter[2]),
+            transforms.Resize(center_crop),
+            transforms.CenterCrop(center_crop),
+            transforms.Resize(input_res),
             normalize,
         ]),
         'val': transforms.Compose([

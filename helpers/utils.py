@@ -1,3 +1,4 @@
+import random
 import numpy as np
 import pyrender
 import torch
@@ -18,6 +19,22 @@ REMOVE_KEYS = ['joint_velocities', 'joint_positions', 'joint_forces',
 SCALE_FACTOR = DEPTH_SCALE
 DEFAULT_SCENE_SCALE = 2.0
 
+def sample_frames(num_frames, vlen, sample='rand', fix_start=None):
+    acc_samples = min(num_frames, vlen)
+    intervals = np.linspace(start=0, stop=vlen, num=acc_samples + 1).astype(int)
+    ranges = []
+    for idx, interv in enumerate(intervals[:-1]):
+        ranges.append((interv, intervals[idx + 1] - 1))
+    if sample == 'rand':
+        frame_idxs = [random.choice(range(x[0], x[1])) for x in ranges]
+    elif fix_start is not None:
+        frame_idxs = [x[0] + fix_start for x in ranges]
+    elif sample == 'uniform':
+        frame_idxs = [(x[0] + x[1]) // 2 for x in ranges]
+    else:
+        raise NotImplementedError
+
+    return frame_idxs
 
 def loss_weights(replay_sample, beta=1.0):
     loss_weights = 1.0

@@ -717,19 +717,19 @@ class ViTLangLearnAndFcsNet(nn.Module):
 
         self.conv1 = Conv2DFiLMBlock(
             channels, self._filters[0], self._kernel_sizes[0],
-            self._strides[0], norm=None, activation=None)
+            self._strides[0], norm='layer', activation='lrelu')
         self.gamma1 = nn.Linear(self._lang_feat_dim, self._filters[0])
         self.beta1 = nn.Linear(self._lang_feat_dim, self._filters[0])
 
         self.conv2 = Conv2DFiLMBlock(
             self._filters[0], self._filters[1], self._kernel_sizes[1],
-            self._strides[1], norm=None, activation=None)
+            self._strides[1], norm='layer', activation='lrelu')
         self.gamma2 = nn.Linear(self._lang_feat_dim, self._filters[1])
         self.beta2 = nn.Linear(self._lang_feat_dim, self._filters[1])
 
         self.conv3 = Conv2DFiLMBlock(
             self._filters[1], self._filters[2], self._kernel_sizes[2],
-            self._strides[2], norm=None, activation=None)
+            self._strides[2], norm='layer', activation='lrelu')
         self.gamma3 = nn.Linear(self._lang_feat_dim, self._filters[2])
         self.beta3 = nn.Linear(self._lang_feat_dim, self._filters[2])
 

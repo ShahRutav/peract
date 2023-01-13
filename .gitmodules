@@ -7,5 +7,5 @@
 	branch = task_spec
 [submodule "RLBench"]
 	path = RLBench
-	url = https://github.com/MohitShridhar/RLBench.git
-	branch = peract
+	url = https://github.com/ShahRutav/RLBench.git
+	branch = task_spec
