@@ -29,7 +29,6 @@ from torch.multiprocessing import Process, Value, Manager
 import helpers.fit as fit
 from helpers.fit import parse_config
 from helpers.fit.fit import build_model#, batch_tokenize
-# TODO: add FIT agent in network_utils/create your a separate one.
 from helpers.fit_network_utils import FITAndFcsNet
 from agents.baselines.fit.fit_agent import FITAgent
 
@@ -260,6 +259,9 @@ def create_agent(camera_name: str,
                  grad_clip: float,
                  task_specification_path: str,
                  observation_config: ObservationConfig,
+                 use_lang_goal: bool,
+                 use_video_goal: bool,
+                 use_image_goal: bool,
                  norm = None):
 
     fit_model, tokenizer, visual_transform  = build_model(config_path=Path(os.path.join(fit.__path__[0], 'config.json')))
@@ -299,6 +301,9 @@ def create_agent(camera_name: str,
         weight_decay=weight_decay,
         grad_clip=grad_clip,
         task_specification_path=task_specification_path,
+        use_lang_goal=use_lang_goal,
+        use_video_goal=use_video_goal,
+        use_image_goal=use_image_goal,
         observation_config=observation_config)
 
     return PreprocessAgent(pose_agent=bc_agent)

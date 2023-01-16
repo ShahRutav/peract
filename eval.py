@@ -80,13 +80,16 @@ def eval_seed(train_cfg,
 
     elif train_cfg.method.name == 'FIT':
         agent = fit.launch_utils.create_agent(
-            cams[0],
-            train_cfg.method.activation,
-            train_cfg.method.lr,
-            train_cfg.method.weight_decay,
-            train_cfg.rlbench.camera_resolution,
-            train_cfg.method.grad_clip,
+            camera_name=cams[0],
+            activation=train_cfg.method.activation,
+            lr=train_cfg.method.lr,
+            weight_decay=train_cfg.method.weight_decay,
+            image_resolution=train_cfg.rlbench.camera_resolution,
+            grad_clip=train_cfg.method.grad_clip,
             task_specification_path=train_cfg.method.task_specification_path,
+            use_lang_goal=train_cfg.method.lang_goal_spec,
+            use_video_goal=train_cfg.method.video_goal_spec,
+            use_image_goal=train_cfg.method.image_goal_spec,
             observation_config=obs_config)
 
     elif train_cfg.method.name == 'C2FARM_LINGUNET_BC':

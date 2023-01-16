@@ -38,8 +38,8 @@ class Actor(nn.Module):
     def get_optim_param_group(self, lr):
         return self._actor_network.get_optim_param_group(lr)
 
-    def forward(self, observations, robot_state, lang_goal_desc=None, video_specification=None):
-        mu = self._actor_network(observations, robot_state, lang_goal_desc, video=video_specification)
+    def forward(self, observations, robot_state, lang_goal_desc=None, video_specification=None, image_goal_specification=None):
+        mu = self._actor_network(observations, robot_state, lang_goal_desc=lang_goal_desc, video=video_specification, goal_image=image_goal_specification)
         return mu
 
 
@@ -52,6 +52,9 @@ class FITAgent(Agent):
                  weight_decay: float = 1e-5,
                  grad_clip: float = 20.0,
                  task_specification_path: str = None,
+                 use_lang_goal: bool = False,
+                 use_video_goal: bool = False,
+                 use_image_goal: bool = False,
                  observation_config: ObservationConfig = None):
         self._camera_name = camera_name
         self._actor_network = actor_network
@@ -61,6 +64,9 @@ class FITAgent(Agent):
         assert os.path.isdir(task_specification_path), "Task specification directory {} does not exists".format(task_specification_path)
         self._task_specification_path = task_specification_path
         self._observation_config = observation_config
+        self._use_lang_goal = use_lang_goal
+        self._use_video_goal = use_video_goal
+        self._use_image_goal = use_image_goal
 
     def build(self, training: bool, device: torch.device = None):
         if device is None:
@@ -108,6 +114,7 @@ class FITAgent(Agent):
         num_cams = len(cam_names);
         t = 4 ## Hard coded to video of length 4
         video = np.zeros((tasks.shape[0], num_cams, t, 3, 256, 256)) ## current videos will be stored as [b, num_cams, t, 3, h, w]. However, model expects an input of [bs, t, 3, h, w]
+        image_goal = np.zeros((tasks.shape[0], num_cams, 1, 3, 256, 256)) ## current videos will be stored as [b, num_cams, t, 3, h, w]. However, model expects an input of [bs, t, 3, h, w]
         for ind, (task_name, task_variation) in enumerate(zip(tasks, task_variations)):
             #print(task_name, task_variation)
             demo = get_stored_demos(
@@ -121,6 +128,7 @@ class FITAgent(Agent):
                             )[0]
 
             video_spec_task_i = []
+            image_spec_task_i = []
             for cam_name in cam_names:
                 cam_i = []
                 #print(len(demo))
@@ -128,29 +136,53 @@ class FITAgent(Agent):
                     img_path = getattr(obs, "{}_rgb".format(cam_name))
                     img = np.array(Image.open(img_path)).transpose(2, 0, 1) ## img becomes of shape 3, h, w
                     cam_i.append(img)
+                image_spec_task_i.append([cam_i[-1]])
+
                 frame_idx = sample_frames(4, len(cam_i), self._sampling_strategy)
                 cam_i = [cam_i[i] for i in frame_idx]
                 video_spec_task_i.append(cam_i)
-            #print(video[ind,...].shape)
-            #print(np.asarray(video_spec_task_i).shape)
+
             video[ind,...] = np.asarray(video_spec_task_i).astype(np.float32)
+            #print(np.asarray(image_spec_task_i).shape)
+            #print(np.asarray(video_spec_task_i).shape)
+            image_goal[ind,...] = np.asarray(image_spec_task_i).astype(np.float32)
         video = torch.from_numpy(video).type(torch.FloatTensor)
         video = video/255.0
+        image_goal = torch.from_numpy(image_goal).type(torch.FloatTensor)
+        image_goal = image_goal/255.0
+        #print(image_goal.shape)
         #print(video.shape)
-        return video
+        return video, image_goal
 
 
     def update(self, step: int, replay_sample: dict) -> dict:
-        lang_goal_desc = replay_sample['lang_goal_desc']
-        lang_goal_desc = self.batch_lang_goal_desc(lang_goal_desc)
-        video_specification = self.get_visual_specification(replay_sample['task_name'], replay_sample['task_variation']).to(self._device)
         robot_state = replay_sample['low_dim_state']
         observations = [
             replay_sample['%s_rgb' % self._camera_name],
             replay_sample['%s_point_cloud' % self._camera_name]
         ]
-        #mu = self._actor(observations=observations, robot_state=robot_state, lang_goal_desc=lang_goal_desc)
-        mu = self._actor(observations=observations, robot_state=robot_state, video_specification=video_specification)
+        if self._use_lang_goal:
+            lang_goal_desc = replay_sample['lang_goal_desc']
+            lang_goal_desc = self.batch_lang_goal_desc(lang_goal_desc)
+            video_specification = None
+            image_goal_specification = None
+        if self._use_video_goal:
+            video_specification, _ = self.get_visual_specification(replay_sample['task_name'], replay_sample['task_variation'])
+            video_specification = video_specification.to(self._device)
+            lang_goal_desc = None
+            image_goal_specification = None
+        if self._use_image_goal:
+            _, image_goal_specification = self.get_visual_specification(replay_sample['task_name'], replay_sample['task_variation'])
+            image_goal_specification = image_goal_specification.to(self._device)
+            lang_goal_desc = None
+            video_specification = None
+        mu = self._actor(
+                            observations=observations,
+                            robot_state=robot_state,
+                            lang_goal_desc=lang_goal_desc,
+                            video_specification=video_specification,
+                            image_goal_specification=image_goal_specification
+                        )
         loss_weights = utils.loss_weights(replay_sample, REPLAY_BETA)
         delta = F.mse_loss(
             mu, replay_sample['action'], reduction='none').mean(1)
@@ -169,11 +201,8 @@ class FITAgent(Agent):
 
     def act(self, step: int, observation: dict,
             deterministic=False) -> ActResult:
-        lang_goal_desc = observation.get('lang_goal_desc', None) # Bad behavior. We should get descriptions as observation
-        lang_goal_desc = self.batch_lang_goal_desc(lang_goal_desc)
         task_name = np.asarray(observation.get('task_name'))
         task_variation = np.asarray(observation.get('task_variation'))
-        video_specification = self.get_visual_specification(task_name, task_variation).to(self._device)
 
         observations = [
             observation['%s_rgb' % self._camera_name][0].to(self._device),
@@ -181,8 +210,28 @@ class FITAgent(Agent):
         ]
         robot_state = observation['low_dim_state'][0].to(self._device)
 
-        #mu = self._actor(observations=observations, robot_state=robot_state, lang_goal_desc=lang_goal_desc)
-        mu = self._actor(observations=observations, robot_state=robot_state, video_specification=video_specification)
+        if self._use_lang_goal:
+            lang_goal_desc = observation.get('lang_goal_desc', None) # Bad behavior. We should get descriptions as observation
+            lang_goal_desc = self.batch_lang_goal_desc(lang_goal_desc)
+            video_specification = None
+            image_goal_specification = None
+        if self._use_video_goal:
+            video_specification = self.get_visual_specification(task_name, task_variation)
+            video_specification = video_specification.to(self._device)
+            lang_goal_desc = None
+            image_goal_specification = None
+        if self._use_image_goal:
+            _, image_goal_specification = self.get_visual_specification(task_name, task_variation)
+            image_goal_specification = image_goal_specification.to(self._device)
+            lang_goal_desc = None
+            video_specification = None
+        mu = self._actor(
+                            observations=observations,
+                            robot_state=robot_state,
+                            lang_goal_desc=lang_goal_desc,
+                            video_specification=video_specification,
+                            image_goal_specification=image_goal_specification
+                        )
         mu = torch.cat(
             [mu[:, :3], self._normalize_quat(mu[:, 3:7]), mu[:, 7:]], dim=-1)
         ignore_collisions = torch.Tensor([1.0]).to(mu.device)

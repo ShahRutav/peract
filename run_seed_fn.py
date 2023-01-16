@@ -126,6 +126,9 @@ def run_seed(rank,
                                         image_resolution=cfg.rlbench.camera_resolution,
                                         grad_clip=cfg.method.grad_clip,
                                         task_specification_path=cfg.method.task_specification_path,
+                                        use_lang_goal=cfg.method.lang_goal_spec,
+                                        use_video_goal=cfg.method.video_goal_spec,
+                                        use_image_goal=cfg.method.image_goal_spec,
                                         observation_config=obs_config)
 
     elif cfg.method.name == 'C2FARM_LINGUNET_BC':

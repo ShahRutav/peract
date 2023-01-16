@@ -8,3 +8,6 @@ grad_clip: 0.1
 demo_augmentation: True
 demo_augmentation_every_n: 10
 task_specification_path: /home/rutavms/data/rlbench_task_specifications
+lang_goal_spec: False
+video_goal_spec: True
+image_goal_spec: False

@@ -116,6 +116,13 @@ class FITAndFcsNet(nn.Module):
                 tokens = self.batch_tokenize(lang_goal_desc)
             tokens = {key: val.cuda() for key, val in tokens.items()}
             goal_emb = self._task_model.module.compute_text(tokens) ## TODO: change this to forward pass computation of task_model
+        if goal_image is not None:
+            bs, num_cam, t, _, _, _ = goal_image.shape
+            goal_image = goal_image.reshape(-1, *goal_image.shape[3:])
+            goal_image = self._visual_transform(goal_image)
+            goal_image = goal_image.reshape(-1, t, *goal_image.shape[1:])
+            goal_emb = self._task_model.module.compute_video(goal_image)
+            goal_emb = goal_emb.reshape(bs, *goal_emb.shape[1:])
         assert goal_emb.shape[0] == rgb_depth.shape[0], f"Unequal batch_size between goal_emb: {goal_emb.shape} and observations: {rgb_depth.shape}"
 
         g1 = self.gamma1(goal_emb)
