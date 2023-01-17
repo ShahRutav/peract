@@ -117,30 +117,26 @@ class FITAgent(Agent):
         image_goal = np.zeros((tasks.shape[0], num_cams, 1, 3, 256, 256)) ## current videos will be stored as [b, num_cams, t, 3, h, w]. However, model expects an input of [bs, t, 3, h, w]
         for ind, (task_name, task_variation) in enumerate(zip(tasks, task_variations)):
             #print(task_name, task_variation)
-            demo = get_stored_demos(
-                                amount=1,
-                                image_paths=True,
-                                dataset_root=str(self._task_specification_path),
-                                variation_number=int(task_variation[0]),
-                                task_name=task_name[0],
-                                random_selection=False,
-                                obs_config=self._observation_config,
-                            )[0]
+            examples_path = os.path.join(self._task_specification_path, task_name[0], "variation{}".format(int(task_variation[0])), "episodes/episode0")
 
             video_spec_task_i = []
             image_spec_task_i = []
+            num_frames = None
             for cam_name in cam_names:
                 cam_i = []
-                #print(len(demo))
-                for i, obs in enumerate(demo):
-                    img_path = getattr(obs, "{}_rgb".format(cam_name))
+                if num_frames is None:
+                    num_frames=len(os.listdir(os.path.join(examples_path, "{}_rgb".format(cam_name))))
+                frame_idx = sample_frames(t, num_frames, self._sampling_strategy)
+                for i in frame_idx:
+                    img_path = os.path.join(examples_path, "{}_rgb/{}.png".format(cam_name, i))
                     img = np.array(Image.open(img_path)).transpose(2, 0, 1) ## img becomes of shape 3, h, w
                     cam_i.append(img)
-                image_spec_task_i.append([cam_i[-1]])
+                img_path = os.path.join(examples_path, "{}_rgb/{}.png".format(cam_name, num_frames-1)) ## For the goal image
+                img = np.array(Image.open(img_path)).transpose(2, 0, 1) ## img becomes of shape 3, h, w
+                cam_i.append(img)
 
-                frame_idx = sample_frames(4, len(cam_i), self._sampling_strategy)
-                cam_i = [cam_i[i] for i in frame_idx]
-                video_spec_task_i.append(cam_i)
+                image_spec_task_i.append([cam_i[-1]])
+                video_spec_task_i.append(cam_i[:-1])
 
             video[ind,...] = np.asarray(video_spec_task_i).astype(np.float32)
             #print(np.asarray(image_spec_task_i).shape)
@@ -263,3 +259,20 @@ class FITAgent(Agent):
     def save_weights(self, savedir: str):
         torch.save(self._actor.state_dict(),
                    os.path.join(savedir, 'bc_actor.pt'))
+
+if __name__ == '__main__':
+    task_variations = np.asarray([["0"]])
+    tasks = np.asarray([["open_drawer"]])
+    video, image_goal = get_visual_specification(tasks, task_variations)
+
+    image_goal = image_goal.squeeze()
+    image_goal = np.asarray(image_goal).transpose(1, 2, 0)
+    image_goal = Image.fromarray(np.uint8(image_goal*255.0))
+    image_goal.save("image_goal.png")
+
+    video = video.squeeze()
+    for ind,frame in enumerate(video):
+        frame = np.asarray(frame).transpose(1, 2, 0)
+        frame = Image.fromarray(np.uint8(frame*255.0))
+        frame.save("frame{}.png".format(ind))
+
